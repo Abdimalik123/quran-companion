@@ -10,6 +10,8 @@ export default function Session() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as { type: string; pages: number[] } | null;
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [rated, setRated] = useState<Record<number, ConfidenceLevel>>({});
 
   if (!state || !state.pages.length) {
     return (
@@ -24,8 +26,6 @@ export default function Session() {
   }
 
   const { type, pages } = state;
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [rated, setRated] = useState<Record<number, ConfidenceLevel>>({});
   const currentPage = pages[currentIdx];
 
   const handleRate = (page: number, confidence: ConfidenceLevel) => {
@@ -33,7 +33,6 @@ export default function Session() {
   };
 
   const handleComplete = () => {
-    // Save all ratings and mark completed
     const today = new Date().toISOString().split('T')[0];
     const todayLog = getTodayLog();
 
@@ -42,11 +41,10 @@ export default function Session() {
       savePageData(page, {
         lastRevised: today,
         confidence,
-        revisionCount: 1, // Will increment properly with existing data
+        revisionCount: 1,
       });
     }
 
-    // Update daily log
     const key = type === 'sabbak' ? 'sabbakCompleted' : type === 'sabqi' ? 'sabqiCompleted' : 'manzilCompleted';
     saveDailyLog({
       ...todayLog,
@@ -64,7 +62,6 @@ export default function Session() {
 
   return (
     <div className="min-h-screen p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <Button variant="ghost" onClick={() => navigate('/')}>
           <ChevronLeft className="h-4 w-4 mr-1" /> Back
@@ -72,7 +69,6 @@ export default function Session() {
         <span className="text-sm font-medium text-primary">{pileLabels[type] || 'Session'}</span>
       </div>
 
-      {/* Progress */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">Page {currentIdx + 1} of {pages.length}</span>
@@ -86,7 +82,6 @@ export default function Session() {
         </div>
       </div>
 
-      {/* Current Page */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentPage}
@@ -109,7 +104,6 @@ export default function Session() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation */}
       <div className="flex items-center justify-between mt-6 gap-3">
         <Button
           variant="outline"
