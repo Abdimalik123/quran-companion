@@ -8,10 +8,10 @@ interface ConfidenceSliderProps {
   currentConfidence?: ConfidenceLevel | null;
 }
 
-const levels: { value: ConfidenceLevel; label: string; emoji: string; arabicLabel: string }[] = [
-  { value: 'weak', label: 'Weak', emoji: '🔴', arabicLabel: 'ضعيف' },
-  { value: 'medium', label: 'Medium', emoji: '🟡', arabicLabel: 'متوسط' },
-  { value: 'strong', label: 'Strong', emoji: '🟢', arabicLabel: 'قوي' },
+const levels: { value: ConfidenceLevel; label: string; emoji: string; arabicLabel: string; selectedClass: string }[] = [
+  { value: 'weak', label: 'Weak', emoji: '🔴', arabicLabel: 'ضعيف', selectedClass: 'border-red-500 bg-red-500/10 ring-2 ring-red-500/30' },
+  { value: 'medium', label: 'Medium', emoji: '🟡', arabicLabel: 'متوسط', selectedClass: 'border-yellow-500 bg-yellow-500/10 ring-2 ring-yellow-500/30' },
+  { value: 'strong', label: 'Strong', emoji: '🟢', arabicLabel: 'قوي', selectedClass: 'border-green-600 bg-green-600/10 ring-2 ring-green-600/30' },
 ];
 
 export function ConfidenceSlider({ page, onRate, currentConfidence }: ConfidenceSliderProps) {
@@ -33,7 +33,7 @@ export function ConfidenceSlider({ page, onRate, currentConfidence }: Confidence
             onClick={() => handleSelect(level.value)}
             className={`flex flex-col items-center gap-1 px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
               selected === level.value
-                ? `border-confidence-${level.value} bg-confidence-${level.value}/10`
+                ? level.selectedClass
                 : 'border-border bg-card hover:border-muted-foreground/30'
             }`}
           >
