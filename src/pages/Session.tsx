@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { savePageData, getTodayLog, saveDailyLog, type ConfidenceLevel } from "@/lib/storage";
-import { ConfidenceSlider } from "@/components/ConfidenceSlider";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, AlertTriangle } from "lucide-react";
+
+type SessionPhase = 'review' | 'summary';
 
 export default function Session() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as { type: string; pages: number[] } | null;
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [rated, setRated] = useState<Record<number, ConfidenceLevel>>({});
+  const [phase, setPhase] = useState<SessionPhase>('review');
+  const [flagged, setFlagged] = useState<Record<number, ConfidenceLevel>>({});
 
   if (!state || !state.pages.length) {
     return (
@@ -28,8 +30,19 @@ export default function Session() {
   const { type, pages } = state;
   const currentPage = pages[currentIdx];
 
-  const handleRate = (page: number, confidence: ConfidenceLevel) => {
-    setRated(prev => ({ ...prev, [page]: confidence }));
+  const handleFlag = () => {
+    setFlagged(prev => {
+      const current = prev[currentPage];
+      if (!current) return { ...prev, [currentPage]: 'medium' };
+      if (current === 'medium') return { ...prev, [currentPage]: 'weak' };
+      // If already weak, unflag
+      const { [currentPage]: _, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const handleFinishReview = () => {
+    setPhase('summary');
   };
 
   const handleComplete = () => {
@@ -37,7 +50,7 @@ export default function Session() {
     const todayLog = getTodayLog();
 
     for (const page of pages) {
-      const confidence = rated[page] || 'medium';
+      const confidence: ConfidenceLevel = flagged[page] || 'strong';
       savePageData(page, {
         lastRevised: today,
         confidence,
@@ -60,6 +73,70 @@ export default function Session() {
     manzil: 'Old — Full Revision',
   };
 
+  const flaggedCount = Object.keys(flagged).length;
+  const currentFlagged = flagged[currentPage];
+
+  if (phase === 'summary') {
+    return (
+      <div className="min-h-screen p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="ghost" onClick={() => setPhase('review')}>
+            <ChevronLeft className="h-4 w-4 mr-1" /> Back to Review
+          </Button>
+          <span className="text-sm font-medium text-primary">{pileLabels[type] || 'Session'}</span>
+        </div>
+
+        <div className="pile-card text-center space-y-4 py-8 mb-6">
+          <h2 className="font-display text-2xl text-foreground">Session Summary</h2>
+          <p className="text-muted-foreground text-sm">
+            {pages.length} pages reviewed • {pages.length - flaggedCount} strong • {flaggedCount} flagged
+          </p>
+          <div className="flex justify-center gap-6 text-sm">
+            <span className="flex items-center gap-1.5">🟢 <span className="text-muted-foreground">{pages.length - flaggedCount} Strong</span></span>
+            <span className="flex items-center gap-1.5">🟡 <span className="text-muted-foreground">{Object.values(flagged).filter(v => v === 'medium').length} Medium</span></span>
+            <span className="flex items-center gap-1.5">🔴 <span className="text-muted-foreground">{Object.values(flagged).filter(v => v === 'weak').length} Weak</span></span>
+          </div>
+        </div>
+
+        {flaggedCount > 0 && (
+          <div className="space-y-2 mb-6">
+            <h3 className="text-sm font-medium text-muted-foreground">Flagged Pages</h3>
+            <div className="flex flex-wrap gap-2">
+              {pages.filter(p => flagged[p]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => {
+                    setFlagged(prev => {
+                      const current = prev[p];
+                      if (current === 'medium') return { ...prev, [p]: 'weak' };
+                      if (current === 'weak') {
+                        const { [p]: _, ...rest } = prev;
+                        return rest;
+                      }
+                      return prev;
+                    });
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                    flagged[p] === 'weak'
+                      ? 'border-red-500 bg-red-500/10 text-red-600'
+                      : 'border-yellow-500 bg-yellow-500/10 text-yellow-600'
+                  }`}
+                >
+                  Page {p} {flagged[p] === 'weak' ? '🔴' : '🟡'}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Tap to cycle: Medium → Weak → Remove</p>
+          </div>
+        )}
+
+        <Button onClick={handleComplete} className="w-full" size="lg">
+          <Check className="h-4 w-4 mr-1" /> Complete Session
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <div className="flex items-center justify-between mb-6">
@@ -72,7 +149,9 @@ export default function Session() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">Page {currentIdx + 1} of {pages.length}</span>
-          <span className="text-sm text-muted-foreground">{Object.keys(rated).length} rated</span>
+          {flaggedCount > 0 && (
+            <span className="text-sm text-yellow-600">{flaggedCount} flagged</span>
+          )}
         </div>
         <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
           <div
@@ -96,11 +175,22 @@ export default function Session() {
             <p className="text-lg text-muted-foreground mt-2">Page {currentPage}</p>
           </div>
 
-          <ConfidenceSlider
-            page={currentPage}
-            onRate={handleRate}
-            currentConfidence={rated[currentPage]}
-          />
+          <button
+            onClick={handleFlag}
+            className={`mx-auto flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 transition-all duration-200 ${
+              currentFlagged === 'weak'
+                ? 'border-red-500 bg-red-500/10 text-red-600 ring-2 ring-red-500/30'
+                : currentFlagged === 'medium'
+                ? 'border-yellow-500 bg-yellow-500/10 text-yellow-600 ring-2 ring-yellow-500/30'
+                : 'border-border bg-card hover:border-muted-foreground/30 text-muted-foreground'
+            }`}
+          >
+            <AlertTriangle className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              {currentFlagged === 'weak' ? 'Weak — tap to unflag' : currentFlagged === 'medium' ? 'Shaky — tap for Weak' : 'Flag if struggled'}
+            </span>
+          </button>
+          <p className="text-xs text-muted-foreground">Pages default to Strong ✅ — only flag what needs work</p>
         </motion.div>
       </AnimatePresence>
 
@@ -114,8 +204,8 @@ export default function Session() {
         </Button>
 
         {currentIdx === pages.length - 1 ? (
-          <Button onClick={handleComplete} className="flex-1">
-            <Check className="h-4 w-4 mr-1" /> Complete Session
+          <Button onClick={handleFinishReview} className="flex-1">
+            <Check className="h-4 w-4 mr-1" /> Finish Review
           </Button>
         ) : (
           <Button
