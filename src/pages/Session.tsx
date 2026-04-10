@@ -55,9 +55,9 @@ export default function Session() {
   };
 
   const pileLabels: Record<string, string> = {
-    sabbak: 'Sabbak — New Lesson',
-    sabqi: 'Sabqi — Recent Review',
-    manzil: 'Manzil — Full Revision',
+    sabbak: 'New — New Lesson',
+    sabqi: 'Recent — Recent Review',
+    manzil: 'Old — Full Revision',
   };
 
   return (

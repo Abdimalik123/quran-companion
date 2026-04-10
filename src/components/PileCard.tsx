@@ -10,21 +10,21 @@ interface PileCardProps {
 
 const pileConfig = {
   sabbak: {
-    title: 'Sabbak',
+    title: 'New',
     subtitle: 'New Lesson',
     icon: BookOpen,
     arabicTitle: 'سبق',
     description: 'Today\'s new memorization pages',
   },
   sabqi: {
-    title: 'Sabqi',
+    title: 'Recent',
     subtitle: 'Recent Review',
     icon: RefreshCcw,
     arabicTitle: 'سبقی',
     description: 'Last 7 days of lessons',
   },
   manzil: {
-    title: 'Manzil',
+    title: 'Old',
     subtitle: 'Full Revision',
     icon: Library,
     arabicTitle: 'منزل',
