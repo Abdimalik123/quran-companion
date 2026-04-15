@@ -1,18 +1,17 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { savePageData, getTodayLog, saveDailyLog, type ConfidenceLevel } from "@/lib/storage";
+import { savePageData, getPageData, getTodayLog, saveDailyLog, updateStreak, type ConfidenceLevel } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Check, AlertTriangle } from "lucide-react";
-
-type SessionPhase = 'review' | 'summary';
+import { SessionSummary } from "@/components/SessionSummary";
 
 export default function Session() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as { type: string; pages: number[] } | null;
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [phase, setPhase] = useState<SessionPhase>('review');
+  const [phase, setPhase] = useState<'review' | 'summary'>('review');
   const [flagged, setFlagged] = useState<Record<number, ConfidenceLevel>>({});
 
   if (!state || !state.pages.length) {
@@ -35,14 +34,9 @@ export default function Session() {
       const current = prev[currentPage];
       if (!current) return { ...prev, [currentPage]: 'medium' };
       if (current === 'medium') return { ...prev, [currentPage]: 'weak' };
-      // If already weak, unflag
       const { [currentPage]: _, ...rest } = prev;
       return rest;
     });
-  };
-
-  const handleFinishReview = () => {
-    setPhase('summary');
   };
 
   const handleComplete = () => {
@@ -51,10 +45,11 @@ export default function Session() {
 
     for (const page of pages) {
       const confidence: ConfidenceLevel = flagged[page] || 'strong';
+      const existing = getPageData(page);
       savePageData(page, {
         lastRevised: today,
         confidence,
-        revisionCount: 1,
+        revisionCount: existing.revisionCount + 1,
       });
     }
 
@@ -64,6 +59,7 @@ export default function Session() {
       [key]: [...new Set([...(todayLog as any)[key], ...pages])],
     });
 
+    updateStreak();
     navigate('/');
   };
 
@@ -73,67 +69,19 @@ export default function Session() {
     manzil: 'Old — Full Revision',
   };
 
-  const flaggedCount = Object.keys(flagged).length;
   const currentFlagged = flagged[currentPage];
 
   if (phase === 'summary') {
     return (
-      <div className="min-h-screen p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
-        <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" onClick={() => setPhase('review')}>
-            <ChevronLeft className="h-4 w-4 mr-1" /> Back to Review
-          </Button>
-          <span className="text-sm font-medium text-primary">{pileLabels[type] || 'Session'}</span>
-        </div>
-
-        <div className="pile-card text-center space-y-4 py-8 mb-6">
-          <h2 className="font-display text-2xl text-foreground">Session Summary</h2>
-          <p className="text-muted-foreground text-sm">
-            {pages.length} pages reviewed • {pages.length - flaggedCount} strong • {flaggedCount} flagged
-          </p>
-          <div className="flex justify-center gap-6 text-sm">
-            <span className="flex items-center gap-1.5">🟢 <span className="text-muted-foreground">{pages.length - flaggedCount} Strong</span></span>
-            <span className="flex items-center gap-1.5">🟡 <span className="text-muted-foreground">{Object.values(flagged).filter(v => v === 'medium').length} Medium</span></span>
-            <span className="flex items-center gap-1.5">🔴 <span className="text-muted-foreground">{Object.values(flagged).filter(v => v === 'weak').length} Weak</span></span>
-          </div>
-        </div>
-
-        {flaggedCount > 0 && (
-          <div className="space-y-2 mb-6">
-            <h3 className="text-sm font-medium text-muted-foreground">Flagged Pages</h3>
-            <div className="flex flex-wrap gap-2">
-              {pages.filter(p => flagged[p]).map(p => (
-                <button
-                  key={p}
-                  onClick={() => {
-                    setFlagged(prev => {
-                      const current = prev[p];
-                      if (current === 'medium') return { ...prev, [p]: 'weak' };
-                      if (current === 'weak') {
-                        const { [p]: _, ...rest } = prev;
-                        return rest;
-                      }
-                      return prev;
-                    });
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                    flagged[p] === 'weak'
-                      ? 'border-red-500 bg-red-500/10 text-red-600'
-                      : 'border-yellow-500 bg-yellow-500/10 text-yellow-600'
-                  }`}
-                >
-                  Page {p} {flagged[p] === 'weak' ? '🔴' : '🟡'}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">Tap to cycle: Medium → Weak → Remove</p>
-          </div>
-        )}
-
-        <Button onClick={handleComplete} className="w-full" size="lg">
-          <Check className="h-4 w-4 mr-1" /> Complete Session
-        </Button>
-      </div>
+      <SessionSummary
+        type={type}
+        pages={pages}
+        flagged={flagged}
+        setFlagged={setFlagged}
+        onBack={() => setPhase('review')}
+        onComplete={handleComplete}
+        pileLabels={pileLabels}
+      />
     );
   }
 
@@ -149,8 +97,8 @@ export default function Session() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">Page {currentIdx + 1} of {pages.length}</span>
-          {flaggedCount > 0 && (
-            <span className="text-sm text-yellow-600">{flaggedCount} flagged</span>
+          {Object.keys(flagged).length > 0 && (
+            <span className="text-sm text-accent">{Object.keys(flagged).length} flagged</span>
           )}
         </div>
         <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
@@ -204,7 +152,7 @@ export default function Session() {
         </Button>
 
         {currentIdx === pages.length - 1 ? (
-          <Button onClick={handleFinishReview} className="flex-1">
+          <Button onClick={() => setPhase('summary')} className="flex-1">
             <Check className="h-4 w-4 mr-1" /> Finish Review
           </Button>
         ) : (

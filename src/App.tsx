@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Session from "./pages/Session";
 import Heatmap from "./pages/Heatmap";
 import Mushaf from "./pages/Mushaf";
+import Connections from "./pages/Connections";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => {
                 <Route path="/session" element={<Session />} />
                 <Route path="/heatmap" element={<Heatmap />} />
                 <Route path="/mushaf" element={<Mushaf />} />
+                <Route path="/connections" element={<Connections />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

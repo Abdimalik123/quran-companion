@@ -10,16 +10,16 @@ export function OnboardingFlow() {
   const [step, setStep] = useState(0);
   const [fromPage, setFromPage] = useState(1);
   const [toPage, setToPage] = useState(604);
-  const [dailySabbak, setDailySabbak] = useState(1);
-  const [dailyManzil, setDailyManzil] = useState(5);
+  const [dailyNew, setDailyNew] = useState(1);
+  const [dailyOld, setDailyOld] = useState(5);
 
   const handleComplete = () => {
     const settings: UserSettings = {
       memorizedFrom: fromPage,
       memorizedTo: toPage,
-      dailySabbakPages: dailySabbak,
+      dailySabbakPages: dailyNew,
       sabqiDays: 7,
-      dailyManzilPages: dailyManzil,
+      dailyManzilPages: dailyOld,
       startDate: new Date().toISOString().split('T')[0],
       onboardingComplete: true,
     };
@@ -96,26 +96,26 @@ export function OnboardingFlow() {
             
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-foreground">New lesson (Sabbak) pages/day</label>
+                <label className="text-sm font-medium text-foreground">New lesson pages/day</label>
                 <input
                   type="number"
                   min={0}
                   max={5}
-                  value={dailySabbak}
-                  onChange={(e) => setDailySabbak(Number(e.target.value))}
+                  value={dailyNew}
+                  onChange={(e) => setDailyNew(Number(e.target.value))}
                   className="w-full mt-1 px-3 py-2 rounded-lg border bg-card text-foreground"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Set to 0 if you've completed Hifz</p>
               </div>
               
               <div>
-                <label className="text-sm font-medium text-foreground">Revision (Manzil) pages/day</label>
+                <label className="text-sm font-medium text-foreground">Old revision pages/day</label>
                 <input
                   type="number"
                   min={1}
                   max={30}
-                  value={dailyManzil}
-                  onChange={(e) => setDailyManzil(Number(e.target.value))}
+                  value={dailyOld}
+                  onChange={(e) => setDailyOld(Number(e.target.value))}
                   className="w-full mt-1 px-3 py-2 rounded-lg border bg-card text-foreground"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Recommended: {Math.ceil((toPage - fromPage + 1) / 30)} pages for monthly completion</p>

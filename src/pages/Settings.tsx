@@ -76,7 +76,7 @@ export default function SettingsPage() {
           <h3 className="font-display text-lg text-foreground">Daily Goals</h3>
           
           <div>
-            <label className="text-sm font-medium text-foreground">New lesson (Sabbak) pages/day</label>
+            <label className="text-sm font-medium text-foreground">New lesson pages/day</label>
             <input
               type="number"
               min={0}
@@ -85,10 +85,11 @@ export default function SettingsPage() {
               onChange={(e) => setSettings(s => ({ ...s, dailySabbakPages: Number(e.target.value) }))}
               className="w-full mt-1 px-3 py-2 rounded-lg border bg-card text-foreground"
             />
+            <p className="text-xs text-muted-foreground mt-1">Set to 0 if you've completed Hifz</p>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Sabqi lookback (days)</label>
+            <label className="text-sm font-medium text-foreground">Recent review lookback (days)</label>
             <input
               type="number"
               min={3}
@@ -100,7 +101,7 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Revision (Manzil) pages/day</label>
+            <label className="text-sm font-medium text-foreground">Old revision pages/day</label>
             <input
               type="number"
               min={1}

@@ -9,7 +9,13 @@ export interface SurahInfo {
 
 export const TOTAL_PAGES = 604;
 export const TOTAL_JUZ = 30;
-export const PAGES_PER_JUZ = Math.ceil(TOTAL_PAGES / TOTAL_JUZ); // ~20
+
+// Accurate Juz start pages for 15-line Madinah Mushaf
+export const JUZ_START_PAGES: number[] = [
+  1, 22, 42, 62, 82, 102, 121, 142, 162, 182,
+  201, 222, 242, 262, 282, 302, 322, 342, 362, 382,
+  402, 422, 442, 462, 482, 502, 522, 542, 562, 582,
+];
 
 export const SURAHS: SurahInfo[] = [
   { number: 1, name: "Al-Fatihah", arabicName: "الفاتحة", totalAyahs: 7, startPage: 1 },
@@ -128,9 +134,12 @@ export const SURAHS: SurahInfo[] = [
   { number: 114, name: "An-Nas", arabicName: "الناس", totalAyahs: 6, startPage: 604 },
 ];
 
-// Get Juz number for a given page (1-indexed)
+// Get Juz number for a given page using accurate boundaries
 export function getJuzForPage(page: number): number {
-  return Math.min(30, Math.ceil(page / PAGES_PER_JUZ));
+  for (let i = JUZ_START_PAGES.length - 1; i >= 0; i--) {
+    if (page >= JUZ_START_PAGES[i]) return i + 1;
+  }
+  return 1;
 }
 
 // Get surah for a given page
@@ -143,7 +152,7 @@ export function getSurahForPage(page: number): SurahInfo {
 
 // Get page range for a juz
 export function getJuzPageRange(juz: number): { start: number; end: number } {
-  const start = (juz - 1) * PAGES_PER_JUZ + 1;
-  const end = Math.min(juz * PAGES_PER_JUZ, TOTAL_PAGES);
+  const start = JUZ_START_PAGES[juz - 1];
+  const end = juz < 30 ? JUZ_START_PAGES[juz] - 1 : TOTAL_PAGES;
   return { start, end };
 }
