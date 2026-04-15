@@ -1,12 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, Map, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, BookOpen, Map, Settings, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/mushaf", icon: BookOpen, label: "Mushaf" },
   { to: "/heatmap", icon: Map, label: "Mastery Map" },
-  { to: "/session", icon: BarChart3, label: "Session" },
+  { to: "/connections", icon: Link2, label: "Connections" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSettings, getTodayLog, saveDailyLog } from "@/lib/storage";
+import { getSettings, getTodayLog, saveDailyLog, getStreakData } from "@/lib/storage";
 import { generateDailyPlan, type DailyPlan } from "@/lib/scheduler";
 import { PileCard } from "@/components/PileCard";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [plan, setPlan] = useState<DailyPlan | null>(null);
   const [todayLog, setTodayLog] = useState(getTodayLog());
   const [showMissedDialog, setShowMissedDialog] = useState(false);
+  const streak = getStreakData();
 
   useEffect(() => {
     if (settings?.onboardingComplete) {
@@ -30,9 +31,6 @@ export default function Dashboard() {
   const totalMemorized = settings.memorizedTo - settings.memorizedFrom + 1;
   const totalCompleted = todayLog.sabbakCompleted.length + todayLog.sabqiCompleted.length + todayLog.manzilCompleted.length;
   const totalRequired = plan.totalPages;
-
-  // Calculate streak (simplified)
-  const today = new Date().toISOString().split('T')[0];
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24 md:pb-8">
@@ -73,10 +71,13 @@ export default function Dashboard() {
         </div>
         <div className="pile-card text-center py-4">
           <div className="flex items-center justify-center gap-1">
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            <p className="text-2xl font-bold text-foreground">{today.split('-')[2]}</p>
+            <Flame className="h-4 w-4 text-primary" />
+            <p className="text-2xl font-bold text-foreground">{streak.currentStreak}</p>
           </div>
-          <p className="text-xs text-muted-foreground">Day of Month</p>
+          <p className="text-xs text-muted-foreground">Day Streak</p>
+          {streak.longestStreak > 0 && (
+            <p className="text-[10px] text-muted-foreground">Best: {streak.longestStreak}</p>
+          )}
         </div>
       </motion.div>
 
