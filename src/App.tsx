@@ -8,9 +8,9 @@ import { getSettings } from "@/lib/storage";
 import Index from "./pages/Index";
 import Session from "./pages/Session";
 import Heatmap from "./pages/Heatmap";
-import Mushaf from "./pages/Mushaf";
+import Mushaf from "./pages/Mushaf-enhanced";
 import Connections from "./pages/Connections";
-import SettingsPage from "./pages/Settings";
+import SettingsPage from "./pages/Settings-enhanced";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

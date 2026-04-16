@@ -1,4 +1,4 @@
-import Dashboard from "./Dashboard";
+import Dashboard from "./Dashboard-enhanced";
 
 export default function Index() {
   return <Dashboard />;

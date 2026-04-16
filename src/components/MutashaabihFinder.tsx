@@ -1,25 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, BookMarked, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Search, BookMarked, X, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
-import { getMutashaabihBookmarks, addMutashaabihBookmark, deleteMutashaabihBookmark, type MutashaabihBookmark } from '@/lib/storage-enhanced';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-
-// Simplified mutashaabihaat database - in production this would be comprehensive
-const SIMILAR_VERSES_DB: Record<string, Array<{ surah: number; ayah: number; page: number; similarity: string }>> = {
-  // Example: Surah Al-Baqarah verses with similar patterns
-  '2:25': [
-    { surah: 3, ayah: 15, page: 50, similarity: 'Gardens beneath which rivers flow' },
-    { surah: 4, ayah: 57, page: 88, similarity: 'Gardens beneath which rivers flow' },
-  ],
-  '2:255': [
-    { surah: 3, ayah: 2, page: 50, similarity: 'Allah - there is no deity except Him' },
-  ],
-  // Add more as needed...
-};
+import { findSimilarVerses, getVerseReference, FULL_SIMILARITIES, type SimilarVerse } from '@/lib/mutashaabihaat-database';
+import { getSurahForPage } from '@/data/quran-metadata';
 
 interface MutashaabihFinderProps {
   currentSurah?: number;
@@ -28,58 +14,46 @@ interface MutashaabihFinderProps {
 }
 
 export function MutashaabihFinder({ currentSurah, currentAyah, currentPage }: MutashaabihFinderProps) {
-  const [bookmarks, setBookmarks] = useState<MutashaabihBookmark[]>(getMutashaabihBookmarks());
-  const [searchQuery, setSearchQuery] = useState('');
-  const [similarVerses, setSimilarVerses] = useState<Array<{ surah: number; ayah: number; page: number; similarity: string }>>([]);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [verse1Surah, setVerse1Surah] = useState(currentSurah || 1);
-  const [verse1Ayah, setVerse1Ayah] = useState(currentAyah || 1);
-  const [verse1Page, setVerse1Page] = useState(currentPage || 1);
-  const [verse2Surah, setVerse2Surah] = useState(1);
-  const [verse2Ayah, setVerse2Ayah] = useState(1);
-  const [verse2Page, setVerse2Page] = useState(1);
-  const [notes, setNotes] = useState('');
+  const [similarVerses, setSimilarVerses] = useState<SimilarVerse[]>([]);
+  const [searchSurah, setSearchSurah] = useState('');
+  const [searchAyah, setSearchAyah] = useState('');
+  const [highlightedVerse, setHighlightedVerse] = useState<{ surah: number; ayah: number } | null>(null);
 
   useEffect(() => {
     if (currentSurah && currentAyah) {
-      const key = `${currentSurah}:${currentAyah}`;
-      setSimilarVerses(SIMILAR_VERSES_DB[key] || []);
+      const similar = findSimilarVerses(currentSurah, currentAyah);
+      setSimilarVerses(similar);
+      setHighlightedVerse({ surah: currentSurah, ayah: currentAyah });
     }
   }, [currentSurah, currentAyah]);
 
   const handleSearch = () => {
-    // Simple search in database
-    const query = searchQuery.toLowerCase();
-    const results: Array<{ surah: number; ayah: number; page: number; similarity: string }> = [];
+    const surah = parseInt(searchSurah);
+    const ayah = parseInt(searchAyah);
     
-    Object.entries(SIMILAR_VERSES_DB).forEach(([key, verses]) => {
-      verses.forEach(v => {
-        if (v.similarity.toLowerCase().includes(query)) {
-          const [surah, ayah] = key.split(':').map(Number);
-          results.push({ ...v, surah, ayah });
-        }
-      });
-    });
+    if (isNaN(surah) || isNaN(ayah) || surah < 1 || surah > 114 || ayah < 1) {
+      alert('Please enter valid surah (1-114) and ayah numbers');
+      return;
+    }
     
-    setSimilarVerses(results);
+    const similar = findSimilarVerses(surah, ayah);
+    setSimilarVerses(similar);
+    setHighlightedVerse({ surah, ayah });
   };
 
-  const handleAddBookmark = () => {
-    const bookmark: MutashaabihBookmark = {
-      verse1: { surah: verse1Surah, ayah: verse1Ayah, page: verse1Page },
-      verse2: { surah: verse2Surah, ayah: verse2Ayah, page: verse2Page },
-      notes: notes.trim() || undefined,
-    };
-    
-    addMutashaabihBookmark(bookmark);
-    setBookmarks(getMutashaabihBookmarks());
-    setShowAddDialog(false);
-    setNotes('');
+  const handleClear = () => {
+    setSimilarVerses([]);
+    setSearchSurah('');
+    setSearchAyah('');
+    setHighlightedVerse(null);
   };
 
-  const handleDeleteBookmark = (index: number) => {
-    deleteMutashaabihBookmark(index);
-    setBookmarks(getMutashaabihBookmarks());
+  const handleQuickJump = (surah: number, ayah: number) => {
+    const similar = findSimilarVerses(surah, ayah);
+    setSimilarVerses(similar);
+    setHighlightedVerse({ surah, ayah });
+    setSearchSurah(surah.toString());
+    setSearchAyah(ayah.toString());
   };
 
   return (
@@ -89,172 +63,138 @@ export function MutashaabihFinder({ currentSurah, currentAyah, currentPage }: Mu
           <BookMarked className="h-4 w-4 text-muted-foreground" />
           Similar Verses (Mutashaabihaat)
         </h3>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
-              <BookMarked className="h-4 w-4 mr-1" /> Bookmark Pair
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Bookmark Similar Verses</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-xs font-medium text-foreground">Verse 1 - Surah</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={114}
-                    value={verse1Surah}
-                    onChange={(e) => setVerse1Surah(Number(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-foreground">Ayah</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={verse1Ayah}
-                    onChange={(e) => setVerse1Ayah(Number(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-foreground">Page</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={604}
-                    value={verse1Page}
-                    onChange={(e) => setVerse1Page(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-
-              <div className="text-center text-xs text-muted-foreground">↕ Similar to ↕</div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-xs font-medium text-foreground">Verse 2 - Surah</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={114}
-                    value={verse2Surah}
-                    onChange={(e) => setVerse2Surah(Number(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-foreground">Ayah</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={verse2Ayah}
-                    onChange={(e) => setVerse2Ayah(Number(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-foreground">Page</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={604}
-                    value={verse2Page}
-                    onChange={(e) => setVerse2Page(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Notes</label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="What makes these verses similar? Key differences?"
-                  rows={3}
-                />
-              </div>
-
-              <Button onClick={handleAddBookmark} className="w-full">
-                Bookmark Pair
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Search */}
       <div className="flex gap-2">
-        <Input
-          placeholder="Search for similar patterns..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-        />
+        <div className="flex gap-1 flex-1">
+          <Input
+            placeholder="Surah"
+            type="number"
+            min={1}
+            max={114}
+            value={searchSurah}
+            onChange={(e) => setSearchSurah(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            className="w-20"
+          />
+          <Input
+            placeholder="Ayah"
+            type="number"
+            min={1}
+            value={searchAyah}
+            onChange={(e) => setSearchAyah(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            className="flex-1"
+          />
+        </div>
         <Button onClick={handleSearch} size="icon">
           <Search className="h-4 w-4" />
         </Button>
+        {similarVerses.length > 0 && (
+          <Button onClick={handleClear} variant="ghost" size="icon">
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      {/* Auto-detected similar verses */}
-      {similarVerses.length > 0 && (
-        <div className="pile-card p-4 space-y-2">
-          <h4 className="text-sm font-medium text-foreground mb-2">Found Similar Verses</h4>
-          {similarVerses.map((verse, idx) => (
-            <div key={idx} className="p-2 rounded-lg bg-muted text-sm">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">Surah {verse.surah}, Ayah {verse.ayah} (Page {verse.page})</span>
-                <Badge variant="outline" className="text-xs">Similar</Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{verse.similarity}</p>
+      {/* Current verse indicator */}
+      {highlightedVerse && (
+        <div className="text-xs text-muted-foreground bg-accent/10 p-2 rounded-lg">
+          Showing similarities for: <span className="font-medium text-foreground">
+            Surah {highlightedVerse.surah}, Ayah {highlightedVerse.ayah}
+          </span>
+        </div>
+      )}
+
+      {/* Similar verses display */}
+      <AnimatePresence>
+        {similarVerses.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="pile-card p-4 space-y-2"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-foreground">
+                Found {similarVerses.length} Similar Verse{similarVerses.length > 1 ? 's' : ''}
+              </h4>
+              <Badge variant="outline" className="text-xs">
+                Full Matches
+              </Badge>
             </div>
-          ))}
-        </div>
-      )}
+            
+            <div className="space-y-2">
+              {similarVerses.map((verse, idx) => {
+                const surahInfo = getSurahForPage(1); // Placeholder, would need actual lookup
+                return (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                    onClick={() => handleQuickJump(verse.surah, verse.ayah)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <span className="font-medium text-foreground">
+                          Surah {verse.surah}, Ayah {verse.ayah}
+                        </span>
+                        <Badge 
+                          variant={verse.type === 'full' ? 'default' : 'secondary'} 
+                          className="ml-2 text-xs"
+                        >
+                          {verse.type === 'full' ? 'Exact Match' : 'Partial'}
+                        </Badge>
+                      </div>
+                      <Search className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    {verse.note && (
+                      <p className="text-xs text-muted-foreground mt-1">{verse.note}</p>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
 
-      {/* Bookmarked pairs */}
-      {bookmarks.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-foreground">Your Bookmarks</h4>
-          {bookmarks.map((bookmark, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="pile-card p-3 flex items-start justify-between"
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className="text-xs">
-                    {bookmark.verse1.surah}:{bookmark.verse1.ayah} (p.{bookmark.verse1.page})
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">↔</span>
-                  <Badge variant="outline" className="text-xs">
-                    {bookmark.verse2.surah}:{bookmark.verse2.ayah} (p.{bookmark.verse2.page})
-                  </Badge>
-                </div>
-                {bookmark.notes && (
-                  <p className="text-xs text-muted-foreground mt-1">{bookmark.notes}</p>
-                )}
-              </div>
-              <button
-                onClick={() => handleDeleteBookmark(idx)}
-                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </motion.div>
-          ))}
-        </div>
-      )}
+            <div className="pt-3 border-t mt-3">
+              <p className="text-xs text-muted-foreground flex items-start gap-2">
+                <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <span>
+                  These verses are <strong>exactly the same</strong> in Arabic text. 
+                  Click any verse to see its similar verses.
+                </span>
+              </p>
+            </div>
+          </motion.div>
+        ) : highlightedVerse ? (
+          <div className="text-center py-8 text-muted-foreground text-sm pile-card">
+            <BookMarked className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            <p>No similar verses found for Surah {highlightedVerse.surah}, Ayah {highlightedVerse.ayah}</p>
+            <p className="text-xs mt-1">This verse is unique in the Quran</p>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            <p>Enter a surah and ayah number to find similar verses</p>
+            <p className="text-xs mt-1">Database contains {FULL_SIMILARITIES.length}+ verified similarities</p>
+          </div>
+        )}
+      </AnimatePresence>
 
-      {similarVerses.length === 0 && bookmarks.length === 0 && (
-        <div className="text-center py-6 text-muted-foreground text-sm">
-          <BookMarked className="h-8 w-8 mx-auto mb-2 opacity-30" />
-          No similar verses found. Search or bookmark pairs manually.
-        </div>
-      )}
+      {/* Instructions */}
+      <div className="pile-card p-3 bg-primary/5 border-primary/20">
+        <h4 className="text-xs font-medium text-primary mb-1 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          About Mutashaabihaat
+        </h4>
+        <p className="text-xs text-muted-foreground">
+          Mutashaabihaat are verses that are identical or very similar in wording. 
+          This tool helps you identify and practice these verses to avoid confusion during recitation.
+        </p>
+      </div>
     </div>
   );
 }

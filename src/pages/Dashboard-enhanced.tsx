@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSettings, getTodayLog, saveDailyLog, getStreakData } from "@/lib/storage";
+import { getSettings, getTodayLog, saveDailyLog } from "@/lib/storage";
+import { checkAndUpdateStreak, getStreak } from "@/lib/storage-enhanced";
 import { generateDailyPlan, type DailyPlan } from "@/lib/scheduler";
 import { PileCard } from "@/components/PileCard";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { MissedDayDialog } from "@/components/MissedDayDialog";
 import { motion } from "framer-motion";
-import { CalendarDays, Flame } from "lucide-react";
+import { CalendarDays, Flame, Trophy, Target } from "lucide-react";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -14,11 +15,12 @@ export default function Dashboard() {
   const [plan, setPlan] = useState<DailyPlan | null>(null);
   const [todayLog, setTodayLog] = useState(getTodayLog());
   const [showMissedDialog, setShowMissedDialog] = useState(false);
-  const streak = getStreakData();
+  const [streak, setStreak] = useState(getStreak());
 
   useEffect(() => {
     if (settings?.onboardingComplete) {
       setPlan(generateDailyPlan());
+      setStreak(checkAndUpdateStreak());
     }
   }, []);
 
@@ -31,6 +33,9 @@ export default function Dashboard() {
   const totalMemorized = settings.memorizedTo - settings.memorizedFrom + 1;
   const totalCompleted = todayLog.sabbakCompleted.length + todayLog.sabqiCompleted.length + todayLog.manzilCompleted.length;
   const totalRequired = plan.totalPages;
+  const completionPercent = totalRequired > 0 ? Math.round((totalCompleted / totalRequired) * 100) : 0;
+
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto pb-24 md:pb-8">
@@ -56,7 +61,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-3 gap-3 mb-8"
+        className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8"
       >
         <div className="pile-card text-center py-4">
           <p className="text-2xl font-bold text-primary">{totalMemorized}</p>
@@ -65,21 +70,41 @@ export default function Dashboard() {
         <div className="pile-card text-center py-4">
           <div className="flex items-center justify-center gap-1">
             <Flame className="h-5 w-5 text-accent" />
-            <p className="text-2xl font-bold text-accent">{totalCompleted}/{totalRequired}</p>
+            <p className="text-2xl font-bold text-accent">{streak.currentStreak}</p>
           </div>
-          <p className="text-xs text-muted-foreground">Today's Progress</p>
+          <p className="text-xs text-muted-foreground">Day Streak</p>
         </div>
         <div className="pile-card text-center py-4">
           <div className="flex items-center justify-center gap-1">
-            <Flame className="h-4 w-4 text-primary" />
-            <p className="text-2xl font-bold text-foreground">{streak.currentStreak}</p>
+            <Trophy className="h-5 w-5 text-gold" />
+            <p className="text-2xl font-bold text-gold">{streak.longestStreak}</p>
           </div>
-          <p className="text-xs text-muted-foreground">Day Streak</p>
-          {streak.longestStreak > 0 && (
-            <p className="text-[10px] text-muted-foreground">Best: {streak.longestStreak}</p>
-          )}
+          <p className="text-xs text-muted-foreground">Best Streak</p>
+        </div>
+        <div className="pile-card text-center py-4">
+          <div className="flex items-center justify-center gap-1">
+            <Target className="h-5 w-5 text-confidence-strong" />
+            <p className="text-2xl font-bold text-confidence-strong">{completionPercent}%</p>
+          </div>
+          <p className="text-xs text-muted-foreground">Today's Goal</p>
         </div>
       </motion.div>
+
+      {/* Progress Bar */}
+      <div className="mb-8 pile-card p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-foreground">Today's Progress</span>
+          <span className="text-sm text-muted-foreground">{totalCompleted} / {totalRequired} pages</span>
+        </div>
+        <div className="w-full h-3 rounded-full bg-muted overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${completionPercent}%` }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
+          />
+        </div>
+      </div>
 
       {/* Revision Piles */}
       <div className="space-y-4">
@@ -106,6 +131,29 @@ export default function Dashboard() {
           onStartSession={() => navigate('/session', { state: { type: 'manzil', pages: plan.manzil } })}
         />
       </div>
+
+      {/* Streak Info */}
+      {streak.currentStreak > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="mt-6 pile-card p-4 bg-gradient-to-r from-accent/10 to-primary/10"
+        >
+          <div className="flex items-center gap-3">
+            <Flame className="h-8 w-8 text-accent" />
+            <div>
+              <p className="font-display text-lg text-foreground">
+                {streak.currentStreak} day streak! 
+                {streak.currentStreak === streak.longestStreak && " 🎉 New record!"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Keep going! Total days completed: {streak.totalDaysCompleted}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Missed day button */}
       <div className="mt-6 text-center">

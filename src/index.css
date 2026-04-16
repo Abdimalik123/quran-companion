@@ -1,8 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@300;400;500;600;700&display=swap');
+
 
 @layer base {
   :root {
@@ -104,8 +106,9 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body;
-  }
+	  background: white;
+	  color: black;
+	  }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
