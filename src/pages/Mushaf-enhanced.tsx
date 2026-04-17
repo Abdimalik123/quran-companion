@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { getSettings } from "@/lib/storage";
 import { getSurahForPage, getJuzForPage, TOTAL_PAGES, SURAHS } from "@/data/quran-metadata";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Volume2, AlertCircle, Link2, BookOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Volume2, AlertCircle, Link2, BookOpen, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getPageAyahs, getPageAyahRange, type Ayah } from "@/lib/quran-api";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { MistakeTracker } from "@/components/MistakeTracker";
 import { ConnectionFlags } from "@/components/ConnectionFlags";
+import { MutashaabihFinder } from "@/components/MutashaabihFinder";
+import { cn } from "@/lib/utils";
 
 export default function Mushaf() {
   const settings = getSettings();
@@ -19,6 +21,12 @@ export default function Mushaf() {
   const [showAudio, setShowAudio] = useState(false);
   const [showMistakes, setShowMistakes] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
+  const [showMutashaabih, setShowMutashaabih] = useState(false);
+
+  // Track selected verse for Mutashaabih
+  const [selectedAyah, setSelectedAyah] = useState<Ayah | null>(null);
+  const [currentSurah, setCurrentSurah] = useState<number | undefined>(undefined);
+  const [currentAyah, setCurrentAyah] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     loadPageData();
@@ -26,16 +34,40 @@ export default function Mushaf() {
 
   const loadPageData = async () => {
     setLoading(true);
+    setSelectedAyah(null); // Clear selection when page changes
     try {
       const pageAyahs = await getPageAyahs(currentPage);
-	  console.log("RAW AYAH DATA:", pageAyahs);
+      console.log("RAW AYAH DATA:", pageAyahs);
       setAyahs(pageAyahs || []);
+      
+      // Set default to first ayah on page
+      if (pageAyahs && pageAyahs.length > 0) {
+        const firstAyah = pageAyahs[0];
+        const verseKeyParts = firstAyah.verse_key?.split(':') || ['1', '1'];
+        const surahNum = parseInt(verseKeyParts[0]);
+        const ayahNum = parseInt(verseKeyParts[1]);
+        setCurrentSurah(surahNum);
+        setCurrentAyah(ayahNum);
+      }
     } catch (error) {
       console.error("Error loading page:", error);
       setAyahs([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAyahClick = (ayah: Ayah) => {
+    const verseKeyParts = ayah.verse_key?.split(':') || ['1', '1'];
+    const surahNum = parseInt(verseKeyParts[0]);
+    const ayahNum = parseInt(verseKeyParts[1]);
+    
+    setSelectedAyah(ayah);
+    setCurrentSurah(surahNum);
+    setCurrentAyah(ayahNum);
+    setShowMutashaabih(true); // Auto-open the finder when a verse is clicked
+    
+    console.log('Selected verse:', surahNum, ayahNum);
   };
 
   if (!settings?.onboardingComplete) {
@@ -55,7 +87,7 @@ export default function Mushaf() {
       <div className="mb-6">
         <h1 className="font-display text-3xl text-foreground">Mushaf View</h1>
         <p className="text-sm text-muted-foreground">
-          Page-by-page with audio and tools
+          Click any verse to find similar verses (Mutashaabihaat)
         </p>
       </div>
 
@@ -102,6 +134,17 @@ export default function Mushaf() {
           <Link2 className="h-4 w-4 mr-1" />
           Connections
         </Button>
+
+        <Button
+          variant={showMutashaabih ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowMutashaabih(!showMutashaabih)}
+          className={cn(selectedAyah && "border-accent text-accent")}
+        >
+          <Search className="h-4 w-4 mr-1" />
+          Similar Verses
+          {selectedAyah && <span className="ml-1 text-xs">({selectedAyah.verse_key})</span>}
+        </Button>
       </div>
 
       {/* Audio Player */}
@@ -130,6 +173,18 @@ export default function Mushaf() {
         </div>
       )}
 
+      {/* Mutashaabih Finder */}
+      {showMutashaabih && (
+        <div className="mb-4 pile-card p-4">
+          <MutashaabihFinder 
+            currentSurah={currentSurah} 
+            currentAyah={currentAyah}
+            currentPage={currentPage}
+            selectedAyah={selectedAyah}
+          />
+        </div>
+      )}
+
       {/* Page Display */}
       <AnimatePresence mode="wait">
         <motion.div
@@ -146,6 +201,15 @@ export default function Mushaf() {
             <span>{surah.name}</span>
           </div>
 
+          {/* Selection Hint */}
+          {showMutashaabih && !selectedAyah && (
+            <div className="mb-4 p-3 rounded-lg bg-accent/10 border border-accent/20 text-center">
+              <p className="text-sm text-accent font-medium">
+                👆 Click any verse below to find similar verses
+              </p>
+            </div>
+          )}
+
           {/* Quran Text */}
           {loading ? (
             <div className="text-center py-12">
@@ -154,27 +218,67 @@ export default function Mushaf() {
             </div>
           ) : ayahs.length > 0 ? (
             <div className="space-y-4" dir="rtl">
-              {ayahs.map((ayah) => (
-			  <motion.div
-			  key={ayah.verse_key}
-			  initial={{ opacity: 0, y: 8 }}
-			  animate={{ opacity: 1, y: 0 }}
-			  transition={{ duration: 0.25 }}
-				className="mb-6 flex flex-col items-center text-center px-2"
-  >
-    {/* Verse text container */}
-    <div className="max-w-2xl leading-[2.8rem] text-[1.8rem] md:text-[2.2rem] font-display text-foreground tracking-wide">
-      {ayah.text_uthmani}
-    </div>
+              {ayahs.map((ayah, index) => {
+                const isSelected = selectedAyah?.verse_key === ayah.verse_key;
+                
+                return (
+                  <motion.div
+                    key={ayah.verse_key}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: index * 0.05 }}
+                    className={cn(
+                      "mb-6 flex flex-col items-center text-center px-2 py-3 rounded-xl transition-all duration-200 cursor-pointer group",
+                      isSelected 
+                        ? "bg-accent/10 border-2 border-accent shadow-md" 
+                        : "hover:bg-muted/50 border-2 border-transparent"
+                    )}
+                    onClick={() => handleAyahClick(ayah)}
+                  >
+                    {/* Verse text container */}
+                    <div className="max-w-2xl leading-[2.8rem] text-[1.8rem] md:text-[2.2rem] font-display text-foreground tracking-wide">
+                      {ayah.text_uthmani}
+                    </div>
 
-    {/* Verse number */}
-    <div className="mt-3">
-      <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gold/20 text-gold text-sm font-medium border border-gold/30">
-        {ayah.verse_number}
-      </span>
-    </div>
-  </motion.div>
-))}
+                    {/* Verse number and selection indicator */}
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className={cn(
+                        "inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-medium border transition-all",
+                        isSelected
+                          ? "bg-accent text-accent-foreground border-accent"
+                          : "bg-gold/20 text-gold border-gold/30 group-hover:bg-gold/30"
+                      )}>
+                        {ayah.verse_number}
+                      </span>
+                      
+                      {/* Selection badge */}
+                      <AnimatePresence>
+                        {isSelected && (
+                          <motion.span
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            className="text-xs bg-accent text-accent-foreground px-2 py-1 rounded-full font-medium"
+                          >
+                            Selected
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Hover hint */}
+                    {!isSelected && showMutashaabih && (
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        whileHover={{ opacity: 1 }}
+                        className="text-xs text-muted-foreground mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        Click to find similar verses
+                      </motion.p>
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-12">
